@@ -96,30 +96,6 @@ router.get("/myprojects", async (req, res) => {
   }
 });
 
-router.get("/projects/ongoing", async (req, res) => {
-  const ongoingProjects = await ProjectStatus.find({ user: req.body.userId, completed: false, ongoing: true });
-  try {
-    if (!ongoingProjects || ongoingProjects.length < 1) {
-      return res.status(404).json({ status: res.statusCode, message: "No ongoing projects found for user" });
-    } else {
-      return res.status(200).json({ status: res.statusCode, data: ongoingProjects });
-    }
-  } catch(err) {
-    return res.status(500).json({ status: res.statusCode, message: err });
-  }
-});
 
-router.get("/projects/completed", async (req, res) => {
-  const completedProjects = await ProjectStatus.find({ user: req.body.userId, ongoing: false, completed: true });
-  try {
-    if (!completedProjects || completedProjects < 1) {
-      return res.status(404).json({ status: res.statusCode, message: "No completed projects found for user" });
-    } else {
-      // {...user._doc, password: null}
-      return res.status(200).json({ status: res.statusCode, data: completedProjects });
-    }
-  } catch(err) {
-    return res.status(500).json({ status: res.statusCode, message: err });
-  }
-});
+
 module.exports = router;
