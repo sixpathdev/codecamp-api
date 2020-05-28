@@ -17,11 +17,6 @@ const ProjectSchema = mongoose.Schema({
         type: String,
         required: true
     },
-    completed: {
-        type: Boolean,
-        required: true,
-        default: false
-    },
     createdby: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

@@ -13,7 +13,7 @@ app.get("/", (req, res) => {
 
 mongoose.connect(
   "mongodb://rootuser:rootuser1@ds029426.mlab.com:29426/scrapemyblog",
-  { useNewUrlParser: true, useUnifiedTopology: true }, ()=> console.log("Mongoose connected")
+  { useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true }, ()=> console.log("Mongoose connected")
 );
 
 app.listen(3000, () => console.log("app running on port 3000"));

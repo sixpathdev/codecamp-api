@@ -1,20 +1,12 @@
 const mongoose = require("mongoose")
 
-const ProjectStatusSchema = mongoose.Schema({
+const AttachedUserSchema = mongoose.Schema({
     project: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Project',
-        required: true,
+        required: true
     },
-    ongoing: {
-        type: Boolean,
-        default: false
-    },
-    completed: {
-        type: Boolean,
-        default: false
-    },
-    createdby: {
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
@@ -25,4 +17,4 @@ const ProjectStatusSchema = mongoose.Schema({
     }
 })
 
-module.exports = mongoose.model("ProjectStatus", ProjectStatusSchema)
+module.exports = mongoose.model("AttachedUser", AttachedUserSchema)

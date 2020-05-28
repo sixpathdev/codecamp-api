@@ -6,17 +6,19 @@ const TaskSchema = mongoose.Schema({
         required: true,
     },
     timeframe: {
-        type: String,
+        type: Number,
         required: true
     },
     due: {
         type: Boolean,
-        required: true,
+        default: false
+    },
+    ongoing: {
+        type: Boolean,
         default: false
     },
     completed: {
         type: Boolean,
-        required: true,
         default: false
     },
     project: {

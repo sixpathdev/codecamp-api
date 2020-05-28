@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken")
 const router = express.Router();
 
+const auth = require("../middlewares/auth")
 const User = require("../models/User");
 const ProjectStatus = require("../models/ProjectStatus");
 
@@ -15,6 +16,7 @@ router.get("/", async (req, res) => {
   }
 });
 
+//User signup api
 router.post("/signup", async (req, res) => {
   const userexists = await User.findOne({ email: req.body.email });
   if (userexists) {
@@ -55,34 +57,42 @@ router.post("/signup", async (req, res) => {
   });
 });
 
+//auth api for users to handle login
 router.post("/auth", async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
-  if (!user) {
-    return res.status(404).json({ status: res.statusCode, message: "Authentication failed" });
-  }
-    const isMatch = await bcrypt.compare(req.body.password, user.password)
-    if (!isMatch) {
-        return res.status(400).json({ status: res.statusCode, message: "Incorrect email/password" });
+  try {
+    if (!user || user.length < 1) {
+      return res.status(404).json({ status: res.statusCode, message: "Authentication failed" });
     }
-    const token = jwt.sign({
-        email: user.email,
-        userId: user._id
-    }, "hashmysecret@", {
-        expiresIn: "1h"
-    })
-    return res.status(200).json({ status: res.statusCode, data: {token: token} });
-});
-
-router.get("/profile", async (req, res) => {
-  const user = await User.findOne({ email: req.body.email });
-  if (!user) {
-    return res.status(404).json({ status: res.statusCode, message: "Authentication failed" });
-  } else {
-    return res.status(200).json({ status: res.statusCode, data: {...user._doc, password: null} });
+      const isMatch = await bcrypt.compare(req.body.password, user.password)
+      if (!isMatch) {
+          return res.status(400).json({ status: res.statusCode, message: "Incorrect email/password" });
+      }
+      const token = jwt.sign({
+          email: user.email,
+          userId: user._id
+      }, "hashmysecret@", {
+          expiresIn: "1h"
+      })
+      return res.status(200).json({ status: res.statusCode, data: {token: token} });
+  } catch(error) {
+    return res.status(500).json({ status: res.statusCode, data: "An error occured" });
   }
-
 });
 
+//get user profile data for auth users only
+router.get("/profile", auth, async (req, res) => {
+      const user = await User.findOne({ email: req.token.email });
+      if (!user || user.length < 1) {
+        res.status(404).json({ status: res.statusCode, message: "Authentication failed" });
+      } else {
+        return res.status(200).json({ status: res.statusCode, data: {user:{...user._doc, password: null}} });
+      }
+      // res.status(200).json({status: res.statusCode, message: "Success", data: {user: authData}})
+});
+
+
+//find projects you created
 router.get("/myprojects", async (req, res) => {
   const myprojects = await ProjectStatus.find({ user: req.body.userId });
   try {
@@ -95,7 +105,6 @@ router.get("/myprojects", async (req, res) => {
     return res.status(500).json({ status: res.statusCode, message: err });
   }
 });
-
 
 
 module.exports = router;

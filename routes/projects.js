@@ -1,28 +1,29 @@
 const express = require("express");
 const router = express.Router();
 
-const User = require("../models/User");
+const auth = require("../middlewares/auth")
+
 const Project = require("../models/Project");
 const ProjectStatus = require("../models/ProjectStatus");
+const AttachedUser = require("../models/AttachedUser");
 
-router.get("/", async (req, res) => {
+//List out all your created projects
+router.get("/", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.body.createdby);
-    if (user) {
-      const projects = await Project.find({ createdby: req.body.createdby });
-      return res.status(200).json({ status: res.statusCode, data: projects });
-    } else {
-      return res
-        .status(400)
-        .json({ status: res.statusCode, message: "Invalid user." });
+      const projects = await Project.find({ createdby: req.userId });
+      if(projects.length > 0) {
+        return res.status(200).json({ status: res.statusCode, data: projects });
+      } else {
+      return res.status(200).json({ status: res.statusCode, message: "No project available" });
     }
   } catch (err) {
-    return res.json({ message: "Error fetching projects" });
+    return res.status(401).json({status: res.statusCode, message: "An error occured" });
   }
 });
 
-router.post("/new", async (req, res) => {
-  const project = new Project({ ...req.body });
+//Create a new project
+router.post("/new", auth, async (req, res) => {
+  const project = new Project({ ...req.body, createdby: req.token.userId });
   try {
     const newProject = await project.save();
     return res.status(201).json({ status: res.statusCode, data: newProject });
@@ -31,48 +32,81 @@ router.post("/new", async (req, res) => {
   }
 });
 
-router.get("/ongoing", async (req, res) => {
-  const ongoingProjects = await ProjectStatus.find({ user: req.body.userId, completed: false, ongoing: true });
+//Activate a project as ongoing
+router.post("/activate", auth, async (req, res) => {
+  const projectExists = await Project.find({_id: req.body.project, createdby: req.token.userId});
+  if(projectExists.length > 0) {
+    const project = new ProjectStatus({ ...req.body, createdby: req.token.userId });
   try {
-    if (!ongoingProjects || ongoingProjects.length < 1) {
+    const newProject = await project.save();
+    return res.status(201).json({ status: res.statusCode, data: newProject });
+  } catch (err) {
+    return res.status(200).json({ status: res.statusCode, message: err });
+  }
+  } else {
+    return res.status(404).json({ status: res.statusCode});
+  }
+});
+
+//Attach a user to a project
+router.post("/:project/user/attach", auth, async (req, res) => {
+  const projectExists = await Project.find({_id: req.params.project})
+  const checkProjectStatus = await ProjectStatus.find({project: req.params.project})
+  const isAttachedUser = await AttachedUser.find({user: req.body.user, project: req.params.project})
+  try{
+    if(projectExists.length < 1) {
+      return res.status(404).json({status: res.statusCode, message: "Project not found"})
+    } else if(isAttachedUser.length > 0) {
+      return res.status(200).json({status: res.statusCode, message: "You already have access to this project"})
+    } else if(checkProjectStatus.length < 1) {
+      return res.status(404).json({status: res.statusCode, message: "This project is not ongoing yet"})
+    }
+    const attachUser = new AttachedUser({
+      project: req.params.project,
+      user: req.body.user
+    })
+    const attachedUser = await attachUser.save()
+    return res.status(201).json({status: res.statusCode, message: "User added to project successfully", data: attachedUser})
+  } catch(err){
+    return res.status(200).json({status: res.statusCode, message: err})
+  }
+})
+
+//Returns ongoing projects
+router.get("/ongoing", auth, async (req, res) => {
+  const ongoingProjects = await ProjectStatus.find({ createdby: req.token.userId, ongoing: true });
+  try {
+    if (ongoingProjects.length < 1) {
       return res.status(404).json({ status: res.statusCode, message: "No ongoing projects found for user" });
     } else {
       return res.status(200).json({ status: res.statusCode, data: ongoingProjects });
     }
   } catch(err) {
-    return res.status(500).json({ status: res.statusCode, message: err });
+    return res.status(500).json({ status: res.statusCode, message: "An error occured while getting ongoing projects" });
   }
 });
 
-router.put("/ongoing", async (req, res) => {
-  const ongoingProjects = await ProjectStatus.find({ user: req.body.userId, ongoing: true });
+//update ongoing projects status
+router.put("/ongoing", auth, async (req, res) => {
+  console.log(req.token)
   try {
-    if (ongoingProjects.length < 1) {
-      return res.status(404).json({ status: res.statusCode, message: "No ongoing projects found for user" });
-    } else {
-      const updateProjectStatus = new ProjectStatus({
-        completed: true,
-        ongoing: false
-      })
-      const newlyUpdatedProjectStatus = await updateProjectStatus.save()
-      return res.status(201).json({ status: res.statusCode, data: newlyUpdatedProjectStatus });
-    }
+    const ongoingProjects = await ProjectStatus.updateOne({ _id: req.body.id, createdby: req.token.userId }, { completed: true, ongoing: false }, (err, resp) => {
+      if(err) {
+        return res.status(200).json({ status: res.statusCode, message: err });
+      } else {
+        ProjectStatus.findOne({ _id: req.body.id, createdby: req.token.userId }, (err, data)=>{
+          if(err){
+            return res.status(200).json({ status: res.statusCode, message: "Error retrieving updated data" });
+          } else {
+            return res.status(200).json({ status: res.statusCode, message: "Project status updated successfully", data });
+          }
+        })
+      }
+    });
   } catch(err) {
-    return res.status(500).json({ status: res.statusCode, message: err });
+    return res.status(200).json({ status: res.statusCode, message: err });
   }
 });
 
-router.get("/completed", async (req, res) => {
-  const completedProjects = await ProjectStatus.find({ user: req.body.userId, ongoing: false, completed: true });
-  try {
-    if (!completedProjects || completedProjects < 1) {
-      return res.status(404).json({ status: res.statusCode, message: "No completed projects found for user" });
-    } else {
-      return res.status(200).json({ status: res.statusCode, data: completedProjects });
-    }
-  } catch(err) {
-    return res.status(500).json({ status: res.statusCode, message: err });
-  }
-});
 
 module.exports = router;
